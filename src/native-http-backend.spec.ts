@@ -266,10 +266,9 @@ describe('NativeHttpBackend', () => {
 
         httpBackend.handle(request).subscribe(() => {
             expect(http.sendRequest).toBeCalledWith(
-                'http://test.com',
+                'http://test.com?a=b&c=d',
                 expect.objectContaining({
                     method: 'get',
-                    params: { a: 'b', c: 'd' },
                 }),
             );
             done();
@@ -459,82 +458,10 @@ describe('NativeHttpBackend', () => {
                 expect.anything(),
                 expect.objectContaining({
                     headers: {
-                        headerName1: 'header1Value1',
+                        headerName1: ['header1Value1', 'header1Value2'],
                         headerName2: 'header2Value1',
                     },
                 }),
-            );
-            done();
-        });
-    });
-
-    it('should encode URL', done => {
-        const request = new HttpRequest(
-            'POST',
-            'http://api.com/get something?with= wierd variables ',
-            'a=b&c=d',
-        );
-
-        spyOn(http, 'sendRequest').and.returnValue(
-            Promise.resolve({
-                status: 200,
-                data: '{}',
-                headers: {},
-            }),
-        );
-
-        httpBackend.handle(request).subscribe(() => {
-            expect(http.sendRequest).toHaveBeenCalledWith(
-                'http://api.com/get%20something?with=%20wierd%20variables%20',
-                expect.anything(),
-            );
-            done();
-        });
-    });
-
-    it('should not encode already encoded URL', done => {
-        const request = new HttpRequest(
-            'POST',
-            'http://api.com/get%20something?with=%20wierd%20variables%20',
-            'a=b&c=d',
-        );
-
-        spyOn(http, 'sendRequest').and.returnValue(
-            Promise.resolve({
-                status: 200,
-                data: '{}',
-                headers: {},
-            }),
-        );
-
-        httpBackend.handle(request).subscribe(() => {
-            expect(http.sendRequest).toHaveBeenCalledWith(
-                'http://api.com/get%20something?with=%20wierd%20variables%20',
-                expect.anything(),
-            );
-            done();
-        });
-    });
-
-    it('should not encode already encoded URL which includes reserved characters', done => {
-        const request = new HttpRequest(
-            'POST',
-            'http://api.com/test?reserved=%3B%2C%2F%3F%3A%40%26%3D%2B%24%23',
-            'a=b&c=d',
-        );
-
-        spyOn(http, 'sendRequest').and.returnValue(
-            Promise.resolve({
-                status: 200,
-                data: '{}',
-                headers: {},
-            }),
-        );
-
-        httpBackend.handle(request).subscribe(() => {
-            expect(http.sendRequest).toHaveBeenCalledWith(
-                'http://api.com/test?reserved=%3B%2C%2F%3F%3A%40%26%3D%2B%24%23',
-                expect.anything(),
             );
             done();
         });
@@ -560,41 +487,19 @@ describe('NativeHttpBackend', () => {
         });
     });
 
-    it(`should only use native HTTP plugin "params" option for get requests`, done => {
-        const request = new HttpRequest('GET', 'http://test.com', {
-            params: new HttpParams().append('a', '1').append('b', '2'),
-        });
-
-        const spy = spyOn(http, 'sendRequest').and.returnValue(
-            Promise.resolve({
-                status: 200,
-                data: {},
-            }),
-        );
-        httpBackend.handle(request).subscribe(() => {
-            expect(http.sendRequest).toHaveBeenCalledWith('http://test.com', {
-                params: { a: '1', b: '2' },
-                method: 'get',
-                serializer: 'urlencoded',
-                headers: {},
-                responseType: 'text',
-            });
-            done();
-        });
-    });
-
-    it(`should only use native HTTP plugin "data" option for post requests`, done => {
+    it(`should use native HTTP plugin "data" option for post requests`, done => {
         const request = new HttpRequest('POST', 'http://test.com', {
             a: '1',
             b: '2',
         });
 
-        const spy = spyOn(http, 'sendRequest').and.returnValue(
+        spyOn(http, 'sendRequest').and.returnValue(
             Promise.resolve({
                 status: 200,
                 data: {},
             }),
         );
+
         httpBackend.handle(request).subscribe(() => {
             expect(http.sendRequest).toHaveBeenCalledWith('http://test.com', {
                 data: { a: '1', b: '2' },
@@ -603,6 +508,69 @@ describe('NativeHttpBackend', () => {
                 headers: {},
                 responseType: 'text',
             });
+            done();
+        });
+    });
+
+    it(`specifies correct params for get requests when a key has multiple values`, done => {
+        const request = new HttpRequest('GET', 'http://test.com', {
+            params: new HttpParams().append('a', '1').append('a', '2'),
+        });
+
+        spyOn(http, 'sendRequest').and.returnValue(
+            Promise.resolve({
+                status: 200,
+                data: {},
+            }),
+        );
+        httpBackend.handle(request).subscribe(() => {
+            expect(http.sendRequest).toHaveBeenCalledWith(
+                'http://test.com?a=1&a=2',
+                {
+                    method: 'get',
+                    serializer: 'urlencoded',
+                    headers: {},
+                    responseType: 'text',
+                },
+            );
+            done();
+        });
+    });
+
+    it('posts http-param body with a key having multiple values', done => {
+        const httpParamBody = new HttpParams()
+            .append('a', '1')
+            .append('a', '2');
+
+        const request = new HttpRequest(
+            'POST',
+            'http://test.com',
+            httpParamBody,
+            {
+                headers: new HttpHeaders({
+                    'Content-Type': ['application/x-www-form-urlencoded'],
+                }),
+            },
+        );
+
+        spyOn(http, 'sendRequest').and.returnValue(
+            Promise.resolve({
+                status: 200,
+                data: '{}',
+                headers: {},
+            }),
+        );
+
+        httpBackend.handle(request).subscribe(() => {
+            expect(http.sendRequest).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    data: {
+                        a: ['1', '2'],
+                    },
+                    serializer: 'urlencoded',
+                }),
+            );
             done();
         });
     });

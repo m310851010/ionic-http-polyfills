@@ -1,4 +1,4 @@
-# ionic-native-http-connection-backend
+# ionic-http-polyfills
 
 [![version](https://img.shields.io/npm/v/ionic-native-http-connection-backend.svg?style=flat-square)](http://npm.im/ionic-native-http-connection-backend)
 [![MIT License](https://img.shields.io/npm/l/component-library.svg?style=flat-square)](http://opensource.org/licenses/MIT)
